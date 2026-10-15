@@ -210,7 +210,7 @@ def check_balance_sheet(
         )
         if value is None
     ]
-    if missing:
+    if missing or assets is None or liabilities is None or equity is None:
         return ReconciliationResult(
             name=name,
             status="not_checkable",
