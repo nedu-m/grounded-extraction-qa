@@ -7,6 +7,32 @@ fabricated-fact detection, and regression gating across prompt revisions.
 
 ---
 
+## The page
+
+[qa.nedum.xyz](https://qa.nedum.xyz) is written for the person the link is sent
+to, not for whoever runs the CI. It takes the form a finance reader already trusts
+for this job: an auditor's working paper, where every figure is traced to its
+source and ticked.
+
+- **The working paper.** Pick who prepared the schedule (the current version, two
+  older ones, or one of the two built-to-fail controls) and which statement. Every
+  figure carries a tick mark and a source line reference. Selecting one shows the
+  reviewer's note and highlights the cited line in the document beside it.
+- **Four outcomes, in plain words.** Agreed to source, no source given,
+  exception, not reported. Only agreed figures count as usable.
+- **The review summary** counts usable figures per preparer, which is where the
+  "no sources" control scores zero despite getting every figure right.
+- **A statement that does not foot** is set out with single and double rules
+  and its difference in brackets.
+- **The release gate** reads as a sign-off: approved one way, refused when the
+  same change is rolled backwards.
+- **Supporting schedules**, collapsed, carry the recall, precision and grounding
+  tables for engineers.
+
+The page loads nothing from another host. Fonts are served from `/fonts`, the
+script from `/assets/paper.js`, and the host's Content-Security-Policy allows
+scripts from this origin only, so nothing injected into the markup can run.
+
 ## The problem this exists for
 
 A document extractor can return the correct value for every field and still be
@@ -163,7 +189,8 @@ src/geq/
   corpus.py        golden-set loading and validation
   sqlqa.py         data-quality checks loaded from sql/checks/*.sql
   api.py           HTTP surface; failures return 409, not a 200
-  web.py           the human view of the same numbers
+  web.py           the working-paper page: the same numbers, for a non-technical reader
+  static/fonts/    self-hosted Libre Franklin and Courier Prime (OFL)
   extractors/      rules v1/v2/v3, the DeepSeek path, the adversarial controls
 data/golden/       six labelled statements and the field spec
 sql/               schema, seed with planted defects, six checks
@@ -175,7 +202,7 @@ docs/              production-readiness checklist, prompt changelog
 
 ```bash
 make install     # venv + dev deps (uv)
-make ci          # lint, 298 tests, all five extractors, the gate, the SQL checks
+make ci          # lint, 343 tests, all five extractors, the gate, the SQL checks
 make report      # write reports/*.json and *.md for every extractor
 make compare     # regression-gate v3 against v2; non-zero exit on any regression
 make serve       # http://127.0.0.1:8000
@@ -189,7 +216,9 @@ findings fail the command.
 
 | Endpoint | Purpose |
 | --- | --- |
-| `GET /` | The dashboard |
+| `GET /` | The working-paper page |
+| `GET /assets/paper.js` | The page's only script, served from this origin |
+| `GET /fonts/{name}` | Self-hosted faces, from an allow-list |
 | `GET /health` | Corpus, available extractors, whether model credentials are present |
 | `GET /fields` | The field spec |
 | `POST /extract` | One document, every claim with its citation and evidence status |
