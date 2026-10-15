@@ -34,6 +34,16 @@ fail() { printf '!! %s\n' "$*" >&2; exit 1; }
 echo "==> checking the host is reachable"
 ssh -o ConnectTimeout=10 -o BatchMode=yes "$HOST" true || fail "cannot reach $HOST over SSH"
 
+echo "==> ensuring $REMOTE_DIR exists and is owned by the deploy user"
+# /opt is root-owned. The directory is created once with sudo and then owned by the
+# deploy user, so every later sync needs no privilege.
+ssh "$HOST" bash -euo pipefail <<REMOTE
+  if [ ! -d '$REMOTE_DIR' ]; then
+    sudo install -d -o "\$(id -un)" -g "\$(id -gn)" -m 0755 '$REMOTE_DIR'
+    echo "  created $REMOTE_DIR"
+  fi
+REMOTE
+
 echo "==> syncing the repository to $HOST:$REMOTE_DIR"
 # .env is excluded deliberately: it holds the key and is written separately below.
 # reports/ is generated output; the host regenerates it.
@@ -118,10 +128,15 @@ echo "==> other sites on this host must still be up"
 # Beak's deploy overwrites the shared Caddyfile wholesale, and Caddy keeps
 # serving happily from a config that has lost a site. Checking a hostname that is
 # not ours is the only way to catch that a reload broke someone else.
-for probe in https://www.meetbeak.com/ https://jiayou.nedum.xyz/; do
+for probe in https://meetbeak.com/ https://jiayou.nedum.xyz/; do
+  # A redirect is a healthy answer: meetbeak.com has a www block that 301s to the
+  # apex by design. Anything that is not a 3xx or a 2xx is the failure signal.
   code=$(curl -s -o /dev/null -m 20 -w '%{http_code}' "$probe" || true)
   printf '  %-32s -> HTTP %s\n' "$probe" "$code"
-  [ "$code" = "200" ] || fail "$probe is not answering; a reload may have broken it"
+  case "$code" in
+    2*|3*) : ;;
+    *) fail "$probe is not answering (HTTP $code); a reload may have broken it" ;;
+  esac
 done
 
 echo "==> health check through the loopback listener"
