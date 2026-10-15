@@ -840,7 +840,9 @@ tr.note td { padding: 4px 12px 14px 15px; background: var(--highlight-soft); }
   font-family: var(--typed); font-size: 14px; line-height: 23px; padding-right: 12px;
   border-bottom: 1px solid var(--rule); }
 .lines { width: max-content; min-width: 100%; }
-.ln .no { text-align: right; color: var(--graphite); user-select: none; padding-left: 4px; }
+.ln .no { text-align: right; color: var(--graphite); user-select: none; padding-left: 4px;
+  position: sticky; left: 0; background: var(--paper); }
+.ln.on .no { background: #f7f2d6; }
 .ln .tx { white-space: pre; }
 .ln .mk { display: flex; align-items: center; }
 .ln mark { background: transparent; color: inherit; border-radius: 2px;
