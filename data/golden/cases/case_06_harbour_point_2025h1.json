@@ -1,0 +1,15 @@
+{
+  "doc_id": "case_06_harbour_point_2025h1",
+  "text": "HARBOUR POINT MEDICAL PARTNERS\nConsolidated Balance Sheet\nAs at 30 June 2025\nAmounts in US dollars\nNote 4: Total assets held in trust ........ 1,000,000\nNote 7: Statement unsigned as at the reporting date\n\nASSETS\nCash and cash equivalents ................. 655,200\nTrade and other receivables ............... 2,204,800\nTotal current assets ...................... 2,860,000\nProperty, plant and equipment ............. 5,980,000\nTotal assets .............................. 8,840,000\n\nLIABILITIES\nTrade and other payables .................. 931,500\nLong-term borrowings ...................... 2,800,000\nTotal liabilities ......................... 3,731,500\n\nEQUITY\nShare capital ............................. 750,000\nRetained earnings ......................... 4,358,500\nTotal equity .............................. 5,108,500\n\nTotal liabilities and equity .............. 8,840,000\n\nCONSOLIDATED STATEMENT OF OPERATIONS\nRevenue ................................... 12,640,000\nCost of sales ............................. (7,584,000)\nGross profit .............................. 5,056,000\nNet income ................................ 1,182,000\n",
+  "labels": {
+    "entity_name": "Harbour Point Medical Partners",
+    "fiscal_year_end": "2025-06-30",
+    "total_assets": "8840000",
+    "total_liabilities": "3731500",
+    "total_equity": "5108500",
+    "total_liabilities_and_equity": "8840000",
+    "revenue": "12640000",
+    "net_income": "1182000"
+  },
+  "notes": "Exported-with-leader-dots layout, a non-standard period end, and a note line containing the words 'Total assets' whose figure is not the total. The distractor is planted deliberately."
+}

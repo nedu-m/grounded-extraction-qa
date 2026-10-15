@@ -1,0 +1,41 @@
+[Unit]
+Description=grounded-extraction-qa (evidence-graded QA harness)
+Documentation=https://github.com/nedu-m/grounded-extraction-qa
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=admin
+Group=admin
+WorkingDirectory=/opt/grounded-extraction-qa
+
+# The API key lives here, not in the unit and not in the repository. The file is
+# written 0600 by deploy/deploy.sh and is read only by this service.
+EnvironmentFile=/opt/grounded-extraction-qa/.env
+Environment=PYTHONUNBUFFERED=1
+
+# Loopback only. Caddy owns the public listener; nothing here is exposed directly.
+ExecStart=/opt/grounded-extraction-qa/.venv/bin/uvicorn geq.api:app --host 127.0.0.1 --port 8099 --workers 1 --no-server-header
+
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=10
+KillSignal=SIGINT
+
+# The service needs no privileges: it reads a corpus and renders HTML.
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=full
+ProtectHome=read-only
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+ReadWritePaths=/opt/grounded-extraction-qa
+
+[Install]
+WantedBy=multi-user.target

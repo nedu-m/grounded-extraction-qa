@@ -1,0 +1,98 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Lint
+        run: |
+          ruff check src tests
+          ruff format --check src tests
+
+      - name: Test
+        # No model credentials are provided and none are needed: the offline suite
+        # covers the extractor contract without a network, and the DeepSeek path is
+        # exercised through its pure functions.
+        run: pytest --cov=geq --cov-report=term-missing --cov-fail-under=85
+
+      # The controls are run as a build gate rather than reported on. If the
+      # fabricated-citation check stops firing, these two steps are what fails.
+      - name: Controls must score zero grounded recall
+        run: |
+          set -euo pipefail
+          geq run --extractor adversarial:uncited    --out reports/uncited
+          geq run --extractor adversarial:fabricating --out reports/fabricating
+          python - <<'PY'
+          import json, sys
+
+          failures = []
+          for name in ("uncited", "fabricating"):
+              payload = json.load(open(f"reports/{name}.json"))
+              metrics = payload["metrics"]
+              if metrics["grounded_recall"] != 0.0:
+                  failures.append(
+                      f"{payload['extractor']} scored {metrics['grounded_recall']} "
+                      f"grounded recall; the grounding check has stopped catching it"
+                  )
+          if failures:
+              print("\n".join(failures), file=sys.stderr)
+              sys.exit(1)
+          print("controls score zero grounded recall, as required")
+          PY
+
+      - name: Scorecard for every revision
+        run: |
+          set -euo pipefail
+          for extractor in rules:v1 rules:v2 rules:v3; do
+            geq run --extractor "$extractor" --out "reports/${extractor//:/-}"
+          done
+          geq summary --reports reports
+
+      - name: Regression gate
+        # v3 must be at least as good as v2 on every one of the 48 cells.
+        run: geq compare --baseline reports/rules-v2.json --candidate reports/rules-v3.json
+
+      - name: SQL data-quality checks
+        # The seeded fixture is supposed to be dirty, so this reports rather than
+        # gates. The checks themselves are gated by tests/test_sqlqa.py, which
+        # proves each one returns nothing on clean data.
+        run: geq sqlqa
+
+      - name: Upload scorecards
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scorecards-py${{ matrix.python-version }}
+          path: reports/
+          if-no-files-found: warn

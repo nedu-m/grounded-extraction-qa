@@ -1,0 +1,15 @@
+{
+  "doc_id": "case_03_cascade_2024_millions",
+  "text": "CASCADE SPECIALTY HOLDINGS\nConsolidated Balance Sheet\nAs at 31 December 2024\nAmounts in millions of US dollars\n\nASSETS\nCash and cash equivalents                   1.2\nTrade and other receivables                 3.4\nTotal current assets                        4.6\nProperty, plant and equipment               8.4\nTotal assets                                13.0\n\nLIABILITIES\nTrade and other payables                    1.1\nLong-term borrowings                        5.4\nTotal liabilities                           6.5\n\nEQUITY\nShare capital                               1.0\nRetained earnings                           5.5\nTotal equity                                6.5\n\nTotal liabilities and equity                13.0\n\nCONSOLIDATED STATEMENT OF OPERATIONS\nRevenue                                     24.9\nCost of sales                               (14.9)\nGross profit                                10.0\nNet income                                  2.4\n",
+  "labels": {
+    "entity_name": "Cascade Specialty Holdings",
+    "fiscal_year_end": "2024-12-31",
+    "total_assets": "13000000",
+    "total_liabilities": "6500000",
+    "total_equity": "6500000",
+    "total_liabilities_and_equity": "13000000",
+    "revenue": "24900000",
+    "net_income": "2400000"
+  },
+  "notes": "Stated in millions, rounded to one decimal but exact at that scale."
+}

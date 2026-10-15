@@ -1,0 +1,212 @@
+{
+  "info": {
+    "name": "grounded-extraction-qa",
+    "description": "Six requests over the QA harness: health, the field spec, one document's citations, a scorecard, a regression gate, and the same gate inverted to prove it fires.\n\nRun against a local server with `make serve` first. Every request is collected as a folder so a reviewer can run the whole suite and read the assertions, which is the point of having a collection rather than six curl commands in a README.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://127.0.0.1:8000", "type": "string" },
+    { "key": "docId", "value": "case_02_northgate_2024_thousands", "type": "string" },
+    { "key": "extractor", "value": "rules:v3", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "request": {
+        "method": "GET",
+        "url": { "raw": "{{baseUrl}}/health", "host": ["{{baseUrl}}"], "path": ["health"] },
+        "description": "Reports the corpus size, the available extractors, and whether model credentials are configured. Never returns a key."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('corpus has six documents', () => pm.expect(body.documents).to.eql(6));",
+              "pm.test('the adversarial controls are offered', () => {",
+              "  pm.expect(body.extractors).to.include('adversarial:fabricating');",
+              "  pm.expect(body.extractors).to.include('adversarial:uncited');",
+              "});",
+              "pm.test('no credential is echoed', () => {",
+              "  pm.expect(pm.response.text()).to.not.match(/sk-[A-Za-z0-9]{10,}|cfut_[A-Za-z0-9]/);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Field spec",
+      "request": {
+        "method": "GET",
+        "url": { "raw": "{{baseUrl}}/fields", "host": ["{{baseUrl}}"], "path": ["fields"] },
+        "description": "The eight fields the golden set expects, with their kinds and canonical labels."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is 200', () => pm.response.to.have.status(200));",
+              "const fields = pm.response.json().fields;",
+              "pm.test('eight fields are declared', () => pm.expect(fields).to.have.lengthOf(8));",
+              "pm.test('each field declares a kind', () => {",
+              "  fields.forEach(f => pm.expect(['money','percent','date','text']).to.include(f.kind));",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Extract one document",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": { "raw": "{{baseUrl}}/extract", "host": ["{{baseUrl}}"], "path": ["extract"] },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"extractor\": \"{{extractor}}\",\n  \"doc_id\": \"{{docId}}\"\n}"
+        },
+        "description": "Every claim for one document, each with its citation, the cited text, and whether the citation contains the value it claims. This is the response a reviewer reads when they want to check a number by hand."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('nothing is missing', () => pm.expect(body.missing).to.be.an('array').that.is.empty);",
+              "pm.test('every claim is supported by its own citation', () => {",
+              "  body.claims.forEach(c => {",
+              "    pm.expect(c.evidence_status, c.field).to.eql('supported');",
+              "    pm.expect(c.span_text).to.include(c.value);",
+              "  });",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Extract with a fabricating control",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": { "raw": "{{baseUrl}}/extract", "host": ["{{baseUrl}}"], "path": ["extract"] },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"extractor\": \"adversarial:fabricating\",\n  \"doc_id\": \"case_01_northgate_2024\"\n}"
+        },
+        "description": "The same endpoint, a deliberately dishonest extractor. Each citation points at the label rather than the figure, and the harness says so."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is 200', () => pm.response.to.have.status(200));",
+              "const claims = pm.response.json().claims;",
+              "pm.test('the control does claim values', () => pm.expect(claims.length).to.be.above(0));",
+              "pm.test('every claim is rejected as contradicted', () => {",
+              "  claims.forEach(c => pm.expect(c.evidence_status, c.field).to.eql('contradicted'));",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Scorecard for a revision",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": { "raw": "{{baseUrl}}/qa/run", "host": ["{{baseUrl}}"], "path": ["qa", "run"] },
+        "body": { "mode": "raw", "raw": "{\n  \"extractor\": \"{{extractor}}\"\n}" },
+        "description": "The four headline metrics plus per-field detail and the cells that are not both right and traceable."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is 200', () => pm.response.to.have.status(200));",
+              "const m = pm.response.json().metrics;",
+              "pm.test('48 labelled cells', () => pm.expect(m.gold).to.eql(48));",
+              "pm.test('v3 is fully grounded', () => {",
+              "  pm.expect(m.grounded_recall).to.eql(1);",
+              "  pm.expect(m.grounding_rate).to.eql(1);",
+              "});",
+              "pm.test('the unbalanced statement is reported', () => {",
+              "  const results = pm.response.json().reconciliation.flatMap(c => c.results);",
+              "  pm.expect(results.filter(r => r.status === 'fail')).to.have.lengthOf(1);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Regression gate: improvement",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": { "raw": "{{baseUrl}}/qa/compare", "host": ["{{baseUrl}}"], "path": ["qa", "compare"] },
+        "body": { "mode": "raw", "raw": "{\n  \"baseline\": \"rules:v2\",\n  \"candidate\": \"rules:v3\"\n}" },
+        "description": "v3 against v2. Expected to pass, with 28 cells fixed and none regressed."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('the gate passed', () => pm.expect(body.passed).to.be.true);",
+              "pm.test('nothing regressed', () => pm.expect(body.counts.regressed).to.eql(0));",
+              "pm.test('28 cells were fixed', () => pm.expect(body.counts.fixed).to.eql(28));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Regression gate: the same change backwards",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": { "raw": "{{baseUrl}}/qa/compare", "host": ["{{baseUrl}}"], "path": ["qa", "compare"] },
+        "body": { "mode": "raw", "raw": "{\n  \"baseline\": \"rules:v3\",\n  \"candidate\": \"rules:v2\"\n}" },
+        "description": "The gate inverted. A passing gate proves nothing unless the same gate fails when the change is reversed, so this request is the evidence that it fires."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('the gate refuses the change', () => pm.response.to.have.status(409));",
+              "const detail = pm.response.json().detail;",
+              "pm.test('every regression is named', () => pm.expect(detail.counts.regressed).to.eql(28));",
+              "pm.test('the metric drop is stated', () => {",
+              "  pm.expect(detail.failures.join(' ')).to.include('grounded_recall fell');",
+              "});",
+              "pm.test('the arithmetic regression is caught', () => {",
+              "  pm.expect(detail.arithmetic_regressions.length).to.be.above(0);",
+              "});"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

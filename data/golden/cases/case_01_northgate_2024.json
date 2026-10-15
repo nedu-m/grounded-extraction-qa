@@ -1,0 +1,15 @@
+{
+  "doc_id": "case_01_northgate_2024",
+  "text": "NORTHGATE CLINICAL GROUP\nConsolidated Balance Sheet\nAs at 31 December 2024\nAmounts in US dollars\n\nASSETS\nCash and cash equivalents                   1,204,500\nTrade and other receivables                 3,410,000\nTotal current assets                        4,614,500\nProperty, plant and equipment               8,890,000\nTotal assets                                13,504,500\n\nLIABILITIES\nTrade and other payables                    1,120,400\nLong-term borrowings                        4,200,000\nTotal liabilities                           5,320,400\n\nEQUITY\nShare capital                               1,000,000\nRetained earnings                           7,184,100\nTotal equity                                8,184,100\n\nTotal liabilities and equity                13,504,500\n\nCONSOLIDATED STATEMENT OF OPERATIONS\nRevenue                                     24,880,000\nCost of sales                               (14,920,000)\nGross profit                                9,960,000\nNet income                                  2,415,000\n",
+  "labels": {
+    "entity_name": "Northgate Clinical Group",
+    "fiscal_year_end": "2024-12-31",
+    "total_assets": "13504500",
+    "total_liabilities": "5320400",
+    "total_equity": "8184100",
+    "total_liabilities_and_equity": "13504500",
+    "revenue": "24880000",
+    "net_income": "2415000"
+  },
+  "notes": "Clean control case. Everything foots and every field is present."
+}

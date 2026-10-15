@@ -1,0 +1,15 @@
+{
+  "doc_id": "case_05_riverbend_2023",
+  "text": "PRELIMINARY DRAFT - NOT FOR DISTRIBUTION\nRIVERBEND ORTHOPAEDIC ASSOCIATES\nConsolidated Balance Sheet\nFor the year ended December 31, 2023\nAmounts in US dollars\n\nASSETS\nCash and cash equivalents                   842,900\nTrade and other receivables                 1,986,400\nTotal current assets                        2,829,300\nProperty, plant and equipment               4,512,000\nTotal assets                                7,341,300\n\nLIABILITIES\nTrade and other payables                    764,300\nLong-term borrowings                        2,150,000\nTotal liabilities                           2,914,300\n\nEQUITY\nShare capital                               500,000\nRetained earnings                           3,927,000\nTotal equity                                4,427,000\n\nTotal liabilities and equity                7,341,300\n\nCONSOLIDATED STATEMENT OF OPERATIONS\nRevenue                                     15,420,000\nCost of sales                               (9,180,000)\nGross profit                                6,240,000\nNet income                                  1,336,000\n",
+  "labels": {
+    "entity_name": "Riverbend Orthopaedic Associates",
+    "fiscal_year_end": "2023-12-31",
+    "total_assets": "7341300",
+    "total_liabilities": "2914300",
+    "total_equity": "4427000",
+    "total_liabilities_and_equity": "7341300",
+    "revenue": "15420000",
+    "net_income": "1336000"
+  },
+  "notes": "Cover-page disclaimer above the entity name, and a month-first date. Catches extractors that take the first non-empty line as the entity."
+}

@@ -1,0 +1,15 @@
+{
+  "doc_id": "case_02_northgate_2024_thousands",
+  "text": "NORTHGATE CLINICAL GROUP\nConsolidated Balance Sheet\nAs at 31 December 2024\nAmounts in thousands of US dollars\n\nASSETS\nCash and cash equivalents                   1,204.5\nTrade and other receivables                 3,410.0\nTotal current assets                        4,614.5\nProperty, plant and equipment               8,890.0\nTotal assets                                13,504.5\n\nLIABILITIES\nTrade and other payables                    1,120.4\nLong-term borrowings                        4,200.0\nTotal liabilities                           5,320.4\n\nEQUITY\nShare capital                               1,000.0\nRetained earnings                           7,184.1\nTotal equity                                8,184.1\n\nTotal liabilities and equity                13,504.5\n\nCONSOLIDATED STATEMENT OF OPERATIONS\nRevenue                                     24,880.0\nCost of sales                               (14,920.0)\nGross profit                                9,960.0\nNet income                                  2,415.0\n",
+  "labels": {
+    "entity_name": "Northgate Clinical Group",
+    "fiscal_year_end": "2024-12-31",
+    "total_assets": "13504500",
+    "total_liabilities": "5320400",
+    "total_equity": "8184100",
+    "total_liabilities_and_equity": "13504500",
+    "revenue": "24880000",
+    "net_income": "2415000"
+  },
+  "notes": "Same figures as case_01 but stated in thousands. An extractor that reads the number and ignores the header is out by 1000x."
+}

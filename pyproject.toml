@@ -1,0 +1,73 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "grounded-extraction-qa"
+version = "0.3.0"
+description = "Golden-set QA harness for LLM document extraction: precision/recall, evidence grounding, fabricated-fact detection, and prompt-revision regression gating."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Chukwunedum Davidson" }]
+keywords = ["qa", "llm", "evaluation", "extraction", "grounding", "hallucination", "fintech"]
+classifiers = [
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Software Development :: Quality Assurance",
+]
+dependencies = [
+  "fastapi>=0.115",
+  "pydantic>=2.9",
+  "uvicorn>=0.30",
+]
+
+[project.optional-dependencies]
+llm = ["openai>=1.50"]
+dev = [
+  "httpx>=0.27",
+  "pytest>=8.3",
+  "pytest-cov>=6.0",
+  "ruff>=0.7",
+]
+
+[project.scripts]
+geq = "geq.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/geq"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM", "C4", "PTH", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+# The dashboard is a single embedded HTML document with inline CSS. Wrapping its
+# lines to 100 columns would mean escaping newlines into the markup for no reader.
+"src/geq/web.py" = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q --strict-markers"
+markers = [
+  "slow: marks tests that are slower than the rest",
+]
+
+[tool.coverage.run]
+source = ["src/geq"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+exclude_lines = [
+  "pragma: no cover",
+  "if TYPE_CHECKING:",
+  "raise NotImplementedError",
+]

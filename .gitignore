@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+build/
+dist/
+
+# Tooling
+.pytest_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+.mypy_cache/
+
+# Local environment / secrets - never commit these
+.env
+.env.*
+!.env.example
+
+# Generated QA output (reports are reproducible; regenerate with `make report`)
+reports/*.json
+reports/*.md
+!reports/.gitkeep
+
+# OS
+.DS_Store

@@ -1,0 +1,52 @@
+{
+  "fields": [
+    {
+      "name": "entity_name",
+      "kind": "text",
+      "label": "ENTITY_NAME",
+      "required": true
+    },
+    {
+      "name": "fiscal_year_end",
+      "kind": "date",
+      "label": "DATE",
+      "required": true
+    },
+    {
+      "name": "total_assets",
+      "kind": "money",
+      "label": "Total assets",
+      "required": true
+    },
+    {
+      "name": "total_liabilities",
+      "kind": "money",
+      "label": "Total liabilities",
+      "required": true
+    },
+    {
+      "name": "total_equity",
+      "kind": "money",
+      "label": "Total equity",
+      "required": true
+    },
+    {
+      "name": "total_liabilities_and_equity",
+      "kind": "money",
+      "label": "Total liabilities and equity",
+      "required": true
+    },
+    {
+      "name": "revenue",
+      "kind": "money",
+      "label": "Revenue",
+      "required": true
+    },
+    {
+      "name": "net_income",
+      "kind": "money",
+      "label": "Net income",
+      "required": true
+    }
+  ]
+}

@@ -1,0 +1,46 @@
+# grounded-extraction-qa.nedum.xyz
+#
+# Installed to /etc/caddy/conf.d/ by deploy/deploy.sh, NOT appended to the shared
+# /etc/caddy/Caddyfile.
+#
+# The shared Caddyfile is owned by Beak, whose deploy does
+# `install -m 0644 ops/caddy/Caddyfile /etc/caddy/Caddyfile`, a wholesale
+# overwrite. Anything appended to that file is destroyed on Beak's next release,
+# which is how another project's site on this host went offline once already. The
+# shared file carries one `import /etc/caddy/conf.d/*.caddy` line and each project
+# owns its own file here.
+#
+# DNS is grey cloud: an A record straight to the origin, so Caddy terminates TLS
+# itself with a Let's Encrypt certificate. Because Cloudflare is not in front,
+# do NOT copy the CF-Connecting-IP trick the meetbeak.com block uses: that header
+# does not exist on this host and setting X-Forwarded-For from it would blank the
+# client IP. Caddy sets X-Forwarded-For correctly on its own.
+
+qa.nedum.xyz {
+	encode gzip zstd
+
+	# The harness accepts a document body for ad-hoc scoring, so this is not the
+	# default 10MB open door it would be on a marketing site.
+	request_body {
+		max_size 2MB
+	}
+
+	# Binds to loopback only. The service is not reachable except through Caddy.
+	reverse_proxy 127.0.0.1:8099
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "same-origin"
+		# The dashboard renders attacker-supplied document text into the page when a
+		# reviewer submits an ad-hoc document, so it is worth restricting what the
+		# page can load and execute even though the renderer escapes by default.
+		Content-Security-Policy "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; script-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+		X-Frame-Options "DENY"
+	}
+
+	log {
+		output file /var/log/caddy/geq.log
+		format json
+	}
+}
