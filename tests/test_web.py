@@ -7,15 +7,21 @@ argument, and unescaped document text reaching the markup.
 
 from __future__ import annotations
 
+import json
+import re
+
 import pytest
 
-from geq.models import FieldKind, FieldSpec
+from geq.models import CellResult, EvidenceCheck, EvidenceStatus, Verdict
 from geq.web import (
     CONTROLS,
     REVISIONS,
     Dashboard,
-    _citation_rows,
+    _json_for_script,
     build_dashboard,
+    classify,
+    explorer_payload,
+    outcome_counts,
     render_dashboard,
 )
 
@@ -48,84 +54,158 @@ class TestDashboardData:
         assert len(dashboard.sql.findings) == 6
         assert all(f.description for f in dashboard.sql.findings)
 
+    def test_the_reverse_gate_blocks_the_same_change_rolled_back(self, dashboard):
+        assert not dashboard.reverse_gate.passed
+        assert len(dashboard.reverse_gate.regressions) == len(dashboard.gate.fixes)
+
     def test_provider_configuration_is_reported_without_the_key(self, dashboard):
         assert set(dashboard.llm) == {"configured", "model", "base_url", "api_key_env"}
         assert dashboard.llm["model"]
 
 
+class TestOutcomes:
+    """The plain-language buckets are what a stakeholder reads, so they must be exact."""
+
+    @pytest.mark.parametrize(
+        ("verdict", "status", "key", "group"),
+        [
+            (Verdict.RIGHT, EvidenceStatus.SUPPORTED, "proven", "proven"),
+            (Verdict.RIGHT, EvidenceStatus.UNCITED, "unproven", "unproven"),
+            (Verdict.RIGHT, EvidenceStatus.CONTRADICTED, "bad_proof", "failed"),
+            (Verdict.WRONG, EvidenceStatus.SUPPORTED, "misread", "failed"),
+            (Verdict.WRONG, EvidenceStatus.UNCITED, "wrong", "failed"),
+            (Verdict.WRONG, EvidenceStatus.CONTRADICTED, "fabricated", "failed"),
+            (Verdict.MISSING, None, "missed", "missed"),
+        ],
+    )
+    def test_every_combination_lands_in_one_bucket(self, verdict, status, key, group):
+        check = EvidenceCheck(field="f", status=status, detail="") if status else None
+        outcome = classify(CellResult(doc_id="d", field="f", verdict=verdict, check=check))
+        assert (outcome.key, outcome.group) == (key, group)
+
+    def test_only_right_and_grounded_counts_as_proven(self, dashboard):
+        for run in dashboard.runs.values():
+            assert outcome_counts(run)["proven"] == run.scorecard.right_and_grounded
+
+    def test_counts_cover_every_golden_cell(self, dashboard):
+        for run in dashboard.runs.values():
+            assert sum(outcome_counts(run).values()) == run.scorecard.gold
+
+    def test_the_controls_score_zero_proven(self, dashboard):
+        for name in CONTROLS:
+            assert outcome_counts(dashboard.runs[name])["proven"] == 0
+
+
+class TestExplorerPayload:
+    def test_every_reader_document_and_field_is_present(self, dashboard):
+        payload = explorer_payload(dashboard)
+        assert {r["key"] for r in payload["readers"]} == set(dashboard.runs)
+        assert len(payload["docs"]) == len(dashboard.corpus.cases)
+        for reader in payload["readers"]:
+            for doc in payload["docs"]:
+                assert set(reader["cells"][doc["id"]]) == set(dashboard.corpus.specs)
+
+    def test_proven_spans_point_at_the_reported_figure(self, dashboard):
+        payload = explorer_payload(dashboard)
+        texts = {d["id"]: d["text"] for d in payload["docs"]}
+        best = next(r for r in payload["readers"] if r["key"] == "rules:v3")
+        for doc_id, cells in best["cells"].items():
+            for cell in cells.values():
+                start, end = cell["span"]
+                assert cell["reported"] in texts[doc_id][start:end]
+
+    def test_a_fabricated_figure_shows_what_its_source_really_says(self, dashboard):
+        payload = explorer_payload(dashboard)
+        fab = next(r for r in payload["readers"] if r["key"] == "adversarial:fabricating")
+        cell = fab["cells"]["case_01_northgate_2024"]["total_assets"]
+        assert cell["outcome"] == "fabricated"
+        assert cell["cited"] == "Total assets"
+        assert cell["expected"] == "$13,504,500"
+
+    def test_the_embedded_json_cannot_close_its_script_tag(self):
+        hostile = {"text": "</script><script>alert(1)</script>"}
+        encoded = _json_for_script(hostile)
+        assert "</" not in encoded
+        assert json.loads(encoded) == hostile
+
+
 class TestDashboardRendering:
-    def test_it_leads_with_the_argument(self, html):
-        assert "answer every field correctly" in html
-        assert "and still be unusable" in html
+    def test_it_leads_with_what_the_tool_does(self, html):
+        assert "Every figure the AI reports, ticked back to the line that proves it." in html
 
-    def test_the_headline_metric_is_present(self, html):
-        assert "grounded recall" in html
-        assert "100.0%" in html
+    def test_it_has_no_eyebrow_label_above_the_heading(self, html):
+        assert 'class="kicker"' not in html
 
-    def test_both_controls_appear_in_the_table(self, html):
-        for control in CONTROLS:
-            assert control in html
+    def test_the_working_paper_opens_on_a_preparer_with_exceptions(self, html):
+        assert 'data-default-reader="rules:v2"' in html
+        assert "Working paper" in html
 
-    def test_the_uncited_control_shows_perfect_recall_and_no_evidence(self, html, dashboard):
-        card = dashboard.runs["adversarial:uncited"].scorecard
-        assert card.micro_recall == pytest.approx(1.0)
-        assert card.grounded_recall == pytest.approx(0.0)
-        assert "Every value right, no citations at all." in html
+    def test_every_preparer_is_named_in_plain_language(self, html):
+        for name in (
+            "Current version",
+            "Previous version",
+            "First draft",
+            "Test: no sources",
+            "Test: fabricator",
+        ):
+            assert name in html
 
-    def test_the_fabricated_citation_is_shown_being_caught(self, html):
-        assert "contradicted" in html
-        assert "Total assets" in html, "the citation text itself should be visible"
+    def test_the_tick_legend_explains_every_mark(self, html):
+        for label in ("Agreed to source", "No source given", "Exception", "Not reported"):
+            assert label in html
+        for group in ("proven", "unproven", "failed", "missed"):
+            assert f'id="t-{group}"' in html
 
-    def test_the_gate_is_shown_as_passing(self, html):
-        assert "Release gate" in html
-        assert "PASS" in html
+    def test_the_summary_counts_only_agreed_figures_as_usable(self, html):
+        assert "Review summary" in html
+        assert "<strong>48</strong><span class='of'> of 48</span>" in html
 
-    def test_the_sql_checks_are_shown(self, html):
-        assert "orphaned_extracted_fields" in html
-        assert "brand_asset_mismatch" in html
+    def test_the_unbalanced_statement_is_footed_with_its_difference(self, html):
+        assert "does not add up" in html
+        assert "13,404,500" in html
+        assert "(100,000)" in html
 
-    def test_the_page_says_the_documents_are_synthetic(self, html):
+    def test_both_sign_off_outcomes_are_shown(self, html):
+        assert "Approved to ship" in html
+        assert "Refused" in html
+
+    def test_the_data_room_checks_are_described_in_plain_terms(self, html):
+        assert "The same file uploaded twice for one practice" in html
+        assert "A marketing asset carrying another brand&#x27;s name" in html
+
+    def test_engineering_metrics_are_kept_but_collapsed(self, html):
+        assert '<details class="sheet supporting">' in html
+        assert "Grounded recall" in html
+        for name in (*REVISIONS, *CONTROLS):
+            assert name in html
+
+    def test_the_page_says_the_figures_are_fictional(self, html):
         assert "synthetic" in html
         assert "fictional" in html
 
-    def test_it_is_a_complete_standalone_document(self, html):
+    def test_no_em_dashes_in_the_copy(self, html):
+        assert "\u2014" not in html
+
+    def test_it_loads_nothing_from_another_host(self, html):
         assert html.startswith("<!doctype html>")
         assert html.rstrip().endswith("</html>")
-        assert "<style>" in html
-        assert "http://" not in html.replace("http://127.0.0.1", ""), "no external assets"
+        assert not re.search(
+            r"""(src|href)=["']?(https?:)?//""",
+            html.replace('href="https://nedum.xyz"', "").replace(
+                'href="https://github.com/nedu-m/grounded-extraction-qa"', ""
+            ),
+        )
+        assert not re.search(r"url\((https?:)?//", html)
+
+    def test_every_font_it_asks_for_is_shipped(self, html):
+        from geq.web import FONT_DIR, FONT_FILES
+
+        for name in re.findall(r"/fonts/([\w.-]+\.woff2)", html):
+            assert name in FONT_FILES
+        for name in FONT_FILES:
+            assert (FONT_DIR / name).is_file()
 
     def test_no_template_braces_leaked_into_the_output(self, html):
-        assert "{{" not in html
-        assert "}}" not in html
-
-
-class TestEscaping:
-    def test_document_text_cannot_inject_markup(self):
-        """Ad-hoc documents are reviewer-supplied text that reaches this renderer."""
-        spec = FieldSpec(name="total_assets", kind=FieldKind.MONEY, label="Total assets")
-        case = _case_with_label("<script>alert(1)</script>")
-        run = _run_with_claim(case, spec, "<script>alert(1)</script>")
-        rows = _citation_rows(run, case, {spec.name: spec})
-        assert rows[0]["value"] == "<script>alert(1)</script>"
-        # The value is returned raw by design; escaping is the renderer's job, and
-        # _e() is what the template uses. Prove that path directly.
-        from geq.web import _e
-
-        assert "&lt;script&gt;" in _e(rows[0]["value"])
-
-
-def _case_with_label(text: str):
-    from geq.models import GoldenCase
-
-    return GoldenCase(doc_id="doc", text=text, labels={"total_assets": text})
-
-
-def _run_with_claim(case, spec, claim_text: str):
-    from geq.models import Claim, Extraction
-    from geq.runner import RunResult
-    from geq.scoring import evaluate_corpus
-
-    claim = Claim(field="total_assets", raw_value=claim_text, span=(0, len(claim_text)))
-    extraction = Extraction(doc_id=case.doc_id, extractor="test", claims={"total_assets": claim})
-    card = evaluate_corpus([case], {case.doc_id: extraction}, {spec.name: spec}, extractor="test")
-    return RunResult(scorecard=card, extractions={case.doc_id: extraction})
+        css_and_js = re.sub(r"<(style|script)\b[^>]*>.*?</\1>", "", html, flags=re.S)
+        assert "{{" not in css_and_js
+        assert "}}" not in css_and_js

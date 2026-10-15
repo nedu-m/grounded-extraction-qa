@@ -22,7 +22,7 @@ from functools import lru_cache
 from typing import Any
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel, Field
 
 from . import __version__
@@ -164,6 +164,19 @@ def create_app() -> FastAPI:
         from .web import dashboard_html
 
         return HTMLResponse(dashboard_html())
+
+    @app.get("/fonts/{name}", include_in_schema=False)
+    def font(name: str) -> FileResponse:
+        from .web import FONT_DIR, FONT_FILES
+
+        # An allow-list, not a path join: nothing outside the shipped faces is servable.
+        if name not in FONT_FILES:
+            raise HTTPException(status_code=404, detail="no such font")
+        return FileResponse(
+            FONT_DIR / name,
+            media_type="font/woff2",
+            headers={"Cache-Control": "public, max-age=31536000, immutable"},
+        )
 
     @app.get("/health")
     def health() -> dict[str, Any]:

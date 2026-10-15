@@ -197,3 +197,15 @@ class TestRepeatedIdenticalRequests:
         second = client.post("/qa/compare", json=payload)
         assert first.status_code == second.status_code == 409
         assert first.json() == second.json()
+
+
+class TestFonts:
+    def test_a_shipped_face_is_served_with_a_long_cache(self, client):
+        response = client.get("/fonts/libre-franklin-var.woff2")
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "font/woff2"
+        assert "immutable" in response.headers["cache-control"]
+
+    @pytest.mark.parametrize("name", ["../api.py", "..%2Fapi.py", "LICENSE.md", "nope.woff2"])
+    def test_anything_else_is_not_found(self, client, name):
+        assert client.get(f"/fonts/{name}").status_code == 404
