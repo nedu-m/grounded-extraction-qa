@@ -197,6 +197,12 @@ class TestDashboardRendering:
         )
         assert not re.search(r"url\((https?:)?//", html)
 
+    def test_no_inline_script_can_run_under_the_hosts_policy(self, html):
+        """The host sends script-src 'self': an inline script would be blocked."""
+        for attrs, body in re.findall(r"<script\b([^>]*)>(.*?)</script>", html, flags=re.S):
+            assert "src=" in attrs or 'type="application/json"' in attrs
+            assert "src=" not in attrs or not body.strip()
+
     def test_every_font_it_asks_for_is_shipped(self, html):
         from geq.web import FONT_DIR, FONT_FILES
 

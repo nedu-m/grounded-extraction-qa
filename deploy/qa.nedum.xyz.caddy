@@ -35,7 +35,9 @@ qa.nedum.xyz {
 		# The dashboard renders attacker-supplied document text into the page when a
 		# reviewer submits an ad-hoc document, so it is worth restricting what the
 		# page can load and execute even though the renderer escapes by default.
-		Content-Security-Policy "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; script-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+		# Scripts may come from this origin only (/assets/paper.js); inline script
+		# stays blocked, so nothing injected into the markup can run.
+		Content-Security-Policy "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; script-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
 		X-Frame-Options "DENY"
 	}
 

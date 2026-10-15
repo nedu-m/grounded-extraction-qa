@@ -1128,6 +1128,12 @@ _JS = """
 """
 
 
+PAPER_JS = _JS
+"""Served from /assets/paper.js, never inlined: the host's Content-Security-Policy
+allows scripts from this origin only, which keeps an injected inline script dead
+even if document text ever escaped the renderer."""
+
+
 def render_dashboard(dashboard: Dashboard) -> str:
     return f"""<!doctype html>
 <html lang="en">
@@ -1161,7 +1167,7 @@ def render_dashboard(dashboard: Dashboard) -> str:
   <span>All companies and figures are fictional.</span>
 </footer>
 </div>
-<script>{_JS}</script>
+<script src="/assets/paper.js" defer></script>
 </body>
 </html>
 """

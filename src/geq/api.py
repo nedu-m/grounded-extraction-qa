@@ -22,7 +22,7 @@ from functools import lru_cache
 from typing import Any
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, Response
 from pydantic import BaseModel, Field
 
 from . import __version__
@@ -164,6 +164,16 @@ def create_app() -> FastAPI:
         from .web import dashboard_html
 
         return HTMLResponse(dashboard_html())
+
+    @app.get("/assets/paper.js", include_in_schema=False)
+    def paper_js() -> Response:
+        from .web import PAPER_JS
+
+        return Response(
+            PAPER_JS,
+            media_type="text/javascript",
+            headers={"Cache-Control": "public, max-age=300, stale-while-revalidate=86400"},
+        )
 
     @app.get("/fonts/{name}", include_in_schema=False)
     def font(name: str) -> FileResponse:

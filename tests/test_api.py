@@ -209,3 +209,14 @@ class TestFonts:
     @pytest.mark.parametrize("name", ["../api.py", "..%2Fapi.py", "LICENSE.md", "nope.woff2"])
     def test_anything_else_is_not_found(self, client, name):
         assert client.get(f"/fonts/{name}").status_code == 404
+
+
+class TestPaperScript:
+    def test_the_working_paper_script_is_served_from_this_origin(self, client):
+        response = client.get("/assets/paper.js")
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/javascript")
+        assert "paper-data" in response.text
+
+    def test_the_page_points_at_it(self, client):
+        assert '<script src="/assets/paper.js" defer></script>' in client.get("/").text
