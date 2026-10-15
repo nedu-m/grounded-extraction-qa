@@ -65,7 +65,7 @@ if [ -n "${DEEPSEEK_API_KEY:-}" ]; then
   # umask 077 before the redirect so the file is 0600 from the moment it exists,
   # and printf rather than echo so the key is not interpreted.
   printf 'umask 077\nDEEPSEEK_API_KEY=%s\nGEQ_LLM_MODEL=%s\n' \
-    "$DEEPSEEK_API_KEY" "${GEQ_LLM_MODEL:-deepseek-chat}" \
+    "$DEEPSEEK_API_KEY" "${GEQ_LLM_MODEL:-deepseek-v4-pro}" \
     | ssh "$HOST" "cat > '$REMOTE_DIR/.env.tmp' && mv '$REMOTE_DIR/.env.tmp' '$REMOTE_DIR/.env'"
   say "wrote $REMOTE_DIR/.env as 0600"
 else

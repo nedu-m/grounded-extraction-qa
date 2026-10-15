@@ -127,10 +127,15 @@ protocol. Anything speaking the same protocol works:
 
 ```bash
 export DEEPSEEK_API_KEY=...            # or GEQ_LLM_API_KEY, or OPENAI_API_KEY
-export GEQ_LLM_MODEL=deepseek-chat     # optional
+export GEQ_LLM_MODEL=deepseek-v4-pro   # optional; deepseek-flash is the cheaper option
 export GEQ_LLM_BASE_URL=https://api.deepseek.com   # optional
+geq models                             # what the key can actually use
 geq run --extractor llm
 ```
+
+`geq models` exists because a hard-coded model name is a guess about someone
+else's catalogue. A model that has been retired fails as an HTTP 400 that reads
+like a prompt problem, and the guess is cheap to check.
 
 Two rules make a model's output auditable rather than merely plausible:
 

@@ -13,9 +13,11 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from .corpus import load_corpus
+from .normalize import canonical
 from .regression import RegressionPolicy, compare_runs
 from .report import render_comparison, render_scorecard, render_summary
 from .runner import load_run, run_extractor
+from .scoring import scaled_claim_value
 from .sqlqa import load_checks, load_database, run_checks
 from .verify import check_evidence
 
@@ -100,9 +102,12 @@ def _cmd_extract(args: argparse.Namespace) -> int:
         check = check_evidence(case.text, claim, spec)
         span = f"{claim.span[0]}:{claim.span[1]}" if claim.span else "-"
         detail = check.detail if len(check.detail) < 90 else check.detail[:87] + "..."
-        right = "yes" if check.supported and claim.raw_value else "?"
-        if claim.raw_value != (gold or ""):
-            right = "no"
+        # The same comparison the scorer makes. Comparing raw strings here said
+        # "no" for a correctly formatted value, which put the CLI's verdict in
+        # conflict with the scorecard it was reporting on.
+        right = (
+            "yes" if scaled_claim_value(claim, spec) == canonical(gold or "", spec.kind) else "no"
+        )
         print(
             f"| `{name}` | `{claim.raw_value}` | `{span}` | {check.status.value}: {detail} | "
             f"`{gold}` | {right} |"
@@ -110,6 +115,44 @@ def _cmd_extract(args: argparse.Namespace) -> int:
     for note in extraction.notes:
         print()
         print(f"> {note}")
+    return 0
+
+
+def _cmd_models(args: argparse.Namespace) -> int:
+    from .extractors.llm import LLMConfig, list_models
+
+    config = LLMConfig.from_env()
+    if config.model and args.model:
+        config = LLMConfig(
+            model=args.model,
+            base_url=config.base_url,
+            api_key=config.api_key,
+            api_key_env=config.api_key_env,
+        )
+    if not config.configured:
+        print(
+            "no LLM API key is set. Export DEEPSEEK_API_KEY, then run this again.",
+            file=sys.stderr,
+        )
+        return 2
+    try:
+        models = list_models(config)
+    except RuntimeError as exc:
+        print(f"!! {exc}", file=sys.stderr)
+        return 1
+
+    print(f"# Models available to the configured key ({config.base_url})")
+    print()
+    for name in models:
+        marker = " <- configured" if name == config.model else ""
+        print(f"- `{name}`{marker}")
+    if config.model not in models:
+        print()
+        print(
+            f"!! {config.model!r} is not in that list. Set GEQ_LLM_MODEL to one of "
+            f"the names above; a request for an unavailable model fails as an HTTP "
+            f"error that looks like a prompt problem."
+        )
     return 0
 
 
@@ -150,6 +193,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="exit non-zero if any check returns rows (for real data, not the fixture)",
     )
     sqlqa.set_defaults(func=_cmd_sqlqa)
+
+    models = sub.add_parser("models", help="list the models the configured LLM key can use")
+    models.add_argument("--model", help="check a specific name against the catalogue")
+    models.set_defaults(func=_cmd_models)
 
     extract = sub.add_parser("extract", help="show one document's claims and citations")
     extract.add_argument("--corpus", default="data/golden")

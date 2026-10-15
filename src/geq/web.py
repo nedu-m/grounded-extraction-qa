@@ -11,6 +11,7 @@ the same functions the CI gate uses, so the page cannot drift from the gate.
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from functools import lru_cache
 from html import escape
@@ -20,7 +21,7 @@ from typing import Any
 from .corpus import Corpus, load_corpus
 from .models import EvidenceStatus, GoldenCase
 from .regression import RegressionPolicy, RegressionReport, compare_runs
-from .runner import RunResult, run_extractor
+from .runner import RunResult, load_run, run_extractor
 from .sqlqa import DataQualityReport, load_checks, load_database, run_checks
 from .verify import check_evidence
 
@@ -28,6 +29,10 @@ __all__ = ["Dashboard", "build_dashboard", "render_dashboard"]
 
 REVISIONS = ("rules:v1", "rules:v2", "rules:v3")
 CONTROLS = ("adversarial:uncited", "adversarial:fabricating")
+LLM_ROW = "llm"
+"""Shown only when a stored run exists. The model is measured once and the result
+is read back, because re-running it on every page render would be slow and would
+spend the operator's money to display a number that has not changed."""
 INSPECT_DOC = "case_02_northgate_2024_thousands"
 CONTRAST_DOC = "case_01_northgate_2024"
 
@@ -67,6 +72,10 @@ def build_dashboard(
     corpus = load_corpus(corpus_root)
     names = (*REVISIONS, *CONTROLS)
     runs = {name: run_extractor(corpus, name) for name in names}
+
+    stored = _stored_llm_run()
+    if stored is not None:
+        runs[LLM_ROW] = stored
 
     connection = load_database(sql_schema, sql_seed)
     sql_report = run_checks(connection, load_checks(checks_dir))
@@ -147,6 +156,7 @@ def _revision_table(runs: dict[str, RunResult]) -> str:
         "rules:v3": "Exact labels, document scale, tight citation.",
         "adversarial:uncited": "Every value right, no citations at all.",
         "adversarial:fabricating": "Invented values. Citation on the label.",
+        "llm": "A live model, measured once. Quoted verbatim, value taken from the quote.",
     }
     rows: list[str] = []
     for name, run in runs.items():
@@ -394,6 +404,19 @@ def render_dashboard(dashboard: Dashboard) -> str:
 </body>
 </html>
 """
+
+
+def _stored_llm_run() -> RunResult | None:
+    """Read a previously measured live-model run, if one was shipped or produced."""
+    path = Path(os.environ.get("GEQ_LLM_REPORT", "reports/llm.json"))
+    if not path.is_file():
+        return None
+    try:
+        return load_run(path)
+    except (KeyError, ValueError):
+        # A malformed report degrades to "not shown" rather than taking the page
+        # down; the deterministic rows are the part that must always render.
+        return None
 
 
 @lru_cache(maxsize=1)

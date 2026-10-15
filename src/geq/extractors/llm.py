@@ -29,12 +29,24 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
-from ..models import Claim, Extraction, FieldKind, FieldSpec, GoldenCase
+from ..models import Claim, Extraction, FieldSpec, GoldenCase
 from .base import locate_quote
 
-__all__ = ["DEFAULT_MODEL", "LLMConfig", "LLMExtractor", "quote_must_contain_value"]
+__all__ = [
+    "DEFAULT_MODEL",
+    "LLMConfig",
+    "LLMExtractor",
+    "list_models",
+    "quote_must_contain_value",
+]
 
-DEFAULT_MODEL = "deepseek-chat"
+DEFAULT_MODEL = "deepseek-v4-pro"
+"""Stronger of the two models this account exposes. ``deepseek-flash`` is the
+cheaper option for bulk runs; both are selectable with ``GEQ_LLM_MODEL``.
+
+A hard-coded model name is a guess about someone else's catalogue, so
+:func:`list_models` exists to check rather than guess: provider catalogues move,
+and an unavailable model fails as an HTTP 400 that looks like a prompt bug."""
 DEFAULT_BASE_URL = "https://api.deepseek.com"
 API_KEY_ENV_VARS = ("DEEPSEEK_API_KEY", "GEQ_LLM_API_KEY", "OPENAI_API_KEY")
 _TIMEOUT_SECONDS = 60
@@ -48,6 +60,23 @@ Rules, all of them mandatory:
 - If the document does not state the field, return null for that field.
 - Never infer, compute, round, or reformat a value, and never carry a scale
   across. If the document says "13,504.5", the value is "13,504.5"."""
+
+
+def list_models(config: LLMConfig | None = None) -> list[str]:
+    """Ask the provider which models the configured key can actually use."""
+    config = config or LLMConfig.from_env()
+    if not config.configured:
+        raise RuntimeError("no LLM API key is set. Export DEEPSEEK_API_KEY to list models.")
+    request = urllib.request.Request(
+        f"{config.base_url}/models",
+        headers={"Authorization": f"Bearer {config.api_key}"},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=_TIMEOUT_SECONDS) as response:
+            body = json.loads(response.read().decode("utf-8"))
+    except urllib.error.URLError as exc:  # pragma: no cover - needs network
+        raise RuntimeError(f"could not list models: {exc}") from exc
+    return sorted(item["id"] for item in body.get("data", []) if "id" in item)
 
 
 def quote_must_contain_value(quote: str, value: str) -> bool:
@@ -185,10 +214,11 @@ class LLMExtractor:
         claims: dict[str, Claim] = {}
         notes: list[str] = []
 
+        # Every field in the spec, including the ones a deterministic rule could
+        # answer. Skipping one to save a call would report a miss for a field the
+        # model was never asked about, and a miss that the harness caused is not a
+        # measurement of the model.
         for name, spec in self._specs.items():
-            if spec.kind is FieldKind.TEXT and name == "entity_name":
-                # Cheap and deterministic; a model adds cost and no accuracy here.
-                continue
             try:
                 answer = self._complete(case.text, spec)
             except RuntimeError as exc:

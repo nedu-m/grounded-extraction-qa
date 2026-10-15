@@ -161,7 +161,7 @@ class TestProviderConfig:
 
     def test_deepseek_is_the_default(self):
         config = LLMConfig.from_env({})
-        assert config.model == "deepseek-chat"
+        assert config.model == DEFAULT_MODEL
         assert config.base_url == "https://api.deepseek.com"
         assert config.completions_url == "https://api.deepseek.com/chat/completions"
         assert not config.configured
@@ -196,3 +196,16 @@ class TestProviderConfig:
     def test_an_unknown_provider_name_still_lists_the_valid_options(self):
         with pytest.raises(ValueError, match="adversarial:fabricating"):
             build_extractor("nonsense")
+
+    def test_listing_models_without_a_key_refuses_clearly(self):
+        from geq.extractors.llm import list_models
+
+        with pytest.raises(RuntimeError, match="DEEPSEEK_API_KEY"):
+            list_models(LLMConfig.from_env({}))
+
+    def test_the_cli_reports_missing_credentials_rather_than_crashing(self, monkeypatch):
+        from geq.cli import main
+
+        for name in API_KEY_ENV_VARS:
+            monkeypatch.delenv(name, raising=False)
+        assert main(["models"]) == 2
